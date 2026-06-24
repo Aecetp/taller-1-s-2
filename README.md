@@ -47,9 +47,10 @@ Este proyecto utiliza `uv` como gestor de paquetes moderno.
    ```
 2. Clona este repositorio y navega a la carpeta:
    ```bash
-   cd s1-langgraph-introduccion
+   git clone https://github.com/Aecetp/taller-1-s-2.git
+   cd taller-1-s-2
    ```
-3. Copia el archivo `.env.example` a `.env` y configura tu API Key:
+3. Copia el archivo `.env.example` a `.env` y configura tus API Keys (se recomienda LangSmith para observabilidad):
    ```bash
    cp .env.example .env
    ```
@@ -65,17 +66,18 @@ Este proyecto utiliza `uv` como gestor de paquetes moderno.
 El proyecto está diseñado con una arquitectura modular para simular desarrollos en producción:
 
 ```text
-/s1-langgraph-introduccion
-├── main.py               # 🚀 Ejecuta el grafo y maneja la entrada/salida (Streaming).
-├── graph.py              # 🧠 Define la orquestación (StateGraph, nodos y aristas).
-├── state.py              # 📦 Estado centralizado (memoria del flujo).
-├── nodes/                # 🤖 Carpeta con los "Agentes" (Nodos).
-│   ├── researcher.py     # Agente Investigador.
-│   ├── reviewer.py       # Agente Revisor (Auditor de alucinaciones).
-│   └── writer.py         # Agente Redactor (Formateador final).
+/taller-1-s-2
+├── main.py               # 🚀 Orquestador principal. Controla el flujo, interacciones HITL y logs de gobernanza.
+├── graph.py              # 🧠 Define la topología del grafo (StateGraph, persistencia con MemorySaver e interrupciones).
+├── state.py              # 📦 Estado centralizado (memoria compartida, logs de auditoría y costo de tokens).
+├── nodes/                # 🤖 Agentes especializados (nodos del grafo)
+│   ├── researcher.py     # Agente Investigador (generación inicial).
+│   ├── reviewer.py       # Agente Revisor (auditoría contra alucinaciones).
+│   ├── writer.py         # Agente Redactor (formateo y refinamiento final).
+│   └── publisher.py      # Agente Publicador (A2A - simulación de publicación estructurada externa).
 ├── utils/                
-│   └── llm.py            # 🔌 Conexión al modelo (Gemini por defecto, listo para Claude).
-└── .env.example          # Plantilla de variables de entorno.
+│   └── llm.py            # 🔌 Proveedor del modelo LLM (Gemini por defecto).
+└── .env.example          # Plantilla de variables de entorno (API Keys de Gemini y LangSmith).
 ```
 
 ---
@@ -84,17 +86,22 @@ El proyecto está diseñado con una arquitectura modular para simular desarrollo
 
 *(El instructor guiará el desarrollo de estas secciones paso a paso).*
 
-### Reto 1: Comprendiendo el Estado (`state.py`)
-Abre `state.py` y observa el primer `TODO`. Debes definir el campo `sources` asegurándote de que las fuentes de investigación se **acumulen** a lo largo de las iteraciones en lugar de sobrescribirse.
-*Pista:* Investiga el uso de `Annotated` combinado con `operator.add`.
+### Paso 1: Configurar el Estado Avanzado (`state.py`)
+Abre `state.py` y define las variables de estado avanzadas necesarias para:
+- **Context Engineering**: Payload estructurado `publisher_payload` que filtra el contexto enviado al publicador.
+- **Gobernanza e Inspección**: Reducers (`operator.add`) para acumular de forma transparente `token_cost` y `decision_log` a lo largo del ciclo de vida del flujo.
 
-### Reto 2: Construir el Flujo de Nodos y Edges (`graph.py`)
-Abre `graph.py`. Deberás:
-1. Instanciar el `StateGraph`.
-2. Registrar los nodos correspondientes.
-3. Definir la lógica de la arista condicional `check_reliability` para validar la fiabilidad de la auditoría.
-4. Conectar los nodos con aristas estáticas y dinámicas.
-5. Compilar el grafo.
+### Paso 2: Interoperabilidad A2A (`nodes/publisher.py`)
+Abre `nodes/publisher.py` y completa la lógica del agente publicador:
+- Generación de respuestas estrictamente formateadas en JSON para interactuar de forma segura con APIs externas.
+- Extracción de métricas de uso de tokens (`usage_metadata`) y registro de la decisión en el log de auditoría.
 
-### Reto 3: Ejecución y Trazabilidad (`main.py`)
-Abre `main.py` y completa el bucle de ejecución de eventos usando `graph.stream(...)`. Esto permitirá imprimir en consola paso a paso el progreso del estado, lo cual te servirá para auditar el comportamiento del sistema y verificar la tasa de éxito de las investigaciones.
+### Paso 3: Persistencia y HITL (`graph.py`)
+Abre `graph.py` y configura la orquestación avanzada del grafo:
+- Instanciación de un checkpointer (`MemorySaver`) para dotar de memoria persistente a la ejecución.
+- Configuración de `interrupt_before=["publisher"]` para pausar la ejecución automáticamente antes de una acción de alto impacto.
+
+### Paso 4: Flujo Streaming y Aprobación Humana (`main.py`)
+Abre `main.py` y completa la lógica de interacción con el grafo en pausa:
+- Consulta de estado (`graph.get_state(config)`) para previsualizar los cambios propuestos al usuario.
+- Aceptación/rechazo interactivo en consola y reanudación del grafo pasando `None` para continuar desde el punto de interrupción.
