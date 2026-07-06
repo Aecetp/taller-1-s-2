@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 from graph import create_graph
 
-# Cargar variables de entorno antes de importar cualquier cosa que use LLMs
 load_dotenv()
 
 def print_separator(title=""):
@@ -11,23 +10,19 @@ def print_separator(title=""):
     print(f"{'='*60}")
 
 def run_lab():
-    print_separator("LABORATORIO MULTIAGENTE AVANZADO LANGGRAPH")
-    print("🌟 Temas cubiertos: Orquestación, Checkpointing, A2A, Observabilidad, HITL, Governance.")
-    
-    # 1. Instanciamos el grafo
+    print_separator("LABORATORIO S2: LANGGRAPH AVANZADO")
+    print("Conceptos: Checkpointing · HITL · A2A · Governance")
+
+    # 1. Crear el grafo (con MemorySaver y interrupt_before=["publisher"])
     graph = create_graph()
-    
-    if not graph:
-        print("⚠️ El grafo aún no está construido. Completa graph.py primero.")
-        return
-        
-    # 2. Definimos el tema de entrada
-    topic = input("\n📝 Ingresa un tema de investigación (ej. 'Agujeros negros'): ")
+
+    # 2. Definir el tema
+    topic = input("\n📝 Ingresa un tema de investigación: ")
     if not topic.strip():
-        topic = "Impacto de la IA en Educación"
+        topic = "Impacto de la IA en la Educación"
         print(f"Usando tema por defecto: {topic}")
-    
-    # Estado inicial (incluyendo los nuevos campos avanzados)
+
+    # Estado inicial
     initial_state = {
         "topic": topic,
         "sources": [],
@@ -41,46 +36,65 @@ def run_lab():
         "token_cost": 0,
         "decision_log": []
     }
-    
-    # Configuración del Checkpointer (Memoria)
-    config = {"configurable": {"thread_id": "sesion_1"}}
-    
-    print_separator("INICIANDO FLUJO DEL GRAFO")
-    
-    # 3. Ejecutar el grafo hasta que termine o se interrumpa (HITL)
-    for output in graph.stream(initial_state, config=config):
-        for node_name, state_update in output.items():
-            print(f"\n[Nodo Completado]: {node_name}")
-            if "reliability_score" in state_update:
-                print(f"  └─ Fiabilidad evaluada: {state_update['reliability_score']}%")
-            if "token_cost" in state_update:
-                print(f"  └─ Tokens consumidos en paso: {state_update['token_cost']}")
 
-    # 4. Verificamos si el grafo se detuvo por nuestra interrupción manual
-    # TODO 9: Obtén el estado del grafo y verifica si el siguiente nodo es 'publisher'.
-    # Si es así, pide al usuario aprobación usando `input()`. 
-    # Si aprueba, reanuda el grafo.
-    # Por ahora, simplemente lo simulamos:
-    state = graph.get_state(config)
-    pass
-    
-    print_separator("PANEL DE OBSERVABILIDAD Y GOBERNANZA")
-    
-    final_state = graph.get_state(config).values
-    
-    print(f"💰 Costo total estimado (Tokens): {final_state.get('token_cost', 0)}")
-    print(f"📊 Fiabilidad final de los datos: {final_state.get('reliability_score', 0)}%")
-    print(f"🔄 Intentos de investigación: {final_state.get('revision_retries', 0)}")
-    
-    print("\n📜 Traza de Decisiones (Decision Log):")
-    for log in final_state.get('decision_log', []):
-        print(f"  - {log}")
-        
-    print_separator("RESULTADO DE ACCIÓN (A2A)")
-    print(final_state.get("published_result", "Ninguna acción ejecutada."))
-    
-    print_separator("LANGSMITH")
-    print("Recuerda revisar tu dashboard en LangSmith para ver las trazas completas de las LLM Calls.")
+    # thread_id: identificador de sesión para el checkpointer
+    # Si corremos el script de nuevo con el mismo ID, retomará desde donde quedó.
+    config = {"configurable": {"thread_id": "sesion-s2"}}
+
+    print_separator("FASE 1: FLUJO INVESTIGACIÓN → REDACCIÓN")
+
+    # 3. Ejecutar hasta la interrupción (justo antes del nodo 'publisher')
+    for step in graph.stream(initial_state, config=config):
+        for node_name, state_update in step.items():
+            print(f"\n✅ Nodo '{node_name}' completado.")
+            if "reliability_score" in state_update:
+                print(f"   📊 Fiabilidad: {state_update['reliability_score']}/100 "
+                      f"(Intento {state_update.get('revision_retries', '?')})")
+            if "token_cost" in state_update:
+                print(f"   🔢 Tokens en este paso: {state_update['token_cost']}")
+            if "decision_log" in state_update:
+                for log in state_update["decision_log"]:
+                    print(f"   📝 {log}")
+
+    # 4. El grafo está en pausa antes de 'publisher' → HITL
+    print_separator("PAUSA: APROBACIÓN HUMANA REQUERIDA (HITL)")
+    current_state = graph.get_state(config)
+    print(f"\n⏸️  El grafo está detenido. Siguiente nodo: {current_state.next}")
+    print("\n--- Vista previa del borrador ---")
+    draft_preview = current_state.values.get("final_draft", "")
+    print(draft_preview[:500] + ("..." if len(draft_preview) > 500 else ""))
+
+    approval = input("\n🧑 ¿Apruebas la publicación? (s/n): ").strip().lower()
+
+    if approval == "s":
+        print("\n▶️  Reanudando el flujo hacia el Publisher (A2A)...")
+        print_separator("FASE 2: PUBLICACIÓN A2A")
+        # Reanudar pasando None como input (el estado ya está guardado en el checkpointer)
+        for step in graph.stream(None, config=config):
+            for node_name, state_update in step.items():
+                print(f"\n✅ Nodo '{node_name}' completado.")
+                if "token_cost" in state_update:
+                    print(f"   🔢 Tokens: {state_update['token_cost']}")
+                if "decision_log" in state_update:
+                    for log in state_update["decision_log"]:
+                        print(f"   📝 {log}")
+    else:
+        print("\n❌ Publicación cancelada por el operador humano.")
+
+    # 5. Panel de observabilidad final
+    print_separator("PANEL DE GOVERNANCE Y OBSERVABILIDAD")
+    final = graph.get_state(config).values
+
+    print(f"💰 Tokens totales consumidos : {final.get('token_cost', 0)}")
+    print(f"📊 Fiabilidad final          : {final.get('reliability_score', 0)}/100")
+    print(f"🔄 Intentos de investigación : {final.get('revision_retries', 0)}")
+    print(f"\n📜 Traza de decisiones:")
+    for log in final.get("decision_log", []):
+        print(f"   · {log}")
+
+    if approval == "s":
+        print_separator("RESULTADO DE PUBLICACIÓN (A2A)")
+        print(final.get("published_result", "Sin resultado de publicación."))
 
 if __name__ == "__main__":
     run_lab()

@@ -22,3 +22,11 @@ __pycache__/
 *.log
 *.sqlite
 *.db
+
+# ── Solo para el instructor (no se sube al repo) ──────────
+# Material de exposición (se lleva a PPT)
+MATERIAL_EXPOSICION_S2.md
+# Soluciones del lab (referencia en vivo del instructor)
+lab/SOLUCIONES.py
+# Notas del instructor (opcional — comenta la línea si quieres subirlas)
+NOTAS_INSTRUCTOR.md

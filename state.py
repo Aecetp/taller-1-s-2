@@ -5,35 +5,42 @@ class GraphState(TypedDict):
     """
     Estado centralizado del flujo de trabajo.
     Todos los nodos leen y escriben en esta estructura.
+
+    Campos acumulables (Annotated + operator.add):
+      - sources, token_cost, decision_log
+      Se suman en cada paso en lugar de sobrescribirse.
     """
-    # Tema de investigación ingresado por el usuario
+    # Tema de investigación
     topic: str
-    
-   
-    # Pista: Usa Annotated y operator.add.
-    sources: Annotated[List[str], operator.add] 
-    # Resumen o notas de la investigación
+
+    # Fuentes encontradas (acumulables entre reintentos)
+    sources: Annotated[List[str], operator.add]
+
+    # Notas generadas por el investigador
     research_notes: str
-    
-    # Métrica de fiabilidad calculada por el revisor (0 a 100)
+
+    # Puntaje de fiabilidad del revisor (0-100)
     reliability_score: int
-    
-    # Conteo de intentos de investigación y revisión (para evitar bucles infinitos)
+
+    # Número de rondas de investigación/revisión
     revision_retries: int
-    
+
     # Borrador final redactado
     final_draft: str
-    
-    # Flag para indicar si la investigación fue abortada por baja calidad continua
+
+    # Flag para indicar si el proceso fue abortado
     is_aborted: bool
 
-    # --- NUEVOS CAMPOS AVANZADOS ---
+    # --- NUEVOS: Comunicación A2A ---
+    # Payload estructurado que el writer le pasa al publisher
+    publisher_payload: Dict[str, Any]
 
-    # TODO 1: Context Engineering. Define 'publisher_payload' como Dict[str, Any] 
-    # y 'published_result' como str para el nodo publicador.
-    
+    # Resultado devuelto por el agente publicador
+    published_result: str
 
-    # TODO 2: Governance y Observabilidad. Define 'token_cost' acumulable (Annotated[int, operator.add])
-    # y 'decision_log' acumulable (Annotated[List[str], operator.add])
-    
+    # --- NUEVOS: Observabilidad y Governance ---
+    # Tokens consumidos (acumulables por nodo)
+    token_cost: Annotated[int, operator.add]
 
+    # Registro de decisiones de cada nodo (acumulable)
+    decision_log: Annotated[List[str], operator.add]
